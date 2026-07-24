@@ -4,9 +4,16 @@
     const type = $('#recordType');
     const category = $('#recordCategory');
     $('#recordClass')?.closest('label')?.remove();
+    const exitMode = type?.value === 'Saída';
+    ['recordCategory', 'recordTank', 'recordQty', 'recordNote', 'recordOrigin', 'recordDestination']
+      .forEach((id) => $(`#${id}`)?.closest('label')?.classList.toggle('hidden', exitMode));
+    $('.movement-fields')?.classList.toggle('hidden', exitMode);
+    $('#closingStockPanel')?.classList.toggle('hidden', !exitMode);
+    if (exitMode && $('#modalTitle')) $('#modalTitle').textContent = 'Fechamento diário';
     if (type?.value === 'Entrada' && category) {
       category.value = 'EBE';
       category.disabled = true;
+      if ($('#modalTitle')) $('#modalTitle').textContent = 'Registrar entrada';
     }
   };
   document.addEventListener('click', (event) => {
