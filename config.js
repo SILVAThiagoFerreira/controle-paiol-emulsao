@@ -1,1 +1,1 @@
-window.PAIOL_CONFIG = { apiUrl: '', sheetId: '1boeKEkR0U2Kld3NwZNCBYXMG7agZEWRe', appName: 'Controle de Paiol' };
+window.PAIOL_CONFIG = { apiUrl: 'https://script.google.com/macros/s/AKfycbwhrDGT9nMJE_rAAJN1iPTcNo820wtOETS_0NwZ4AzcXmB1594otzyt4cf9yP2DhoUt/exec', sheetId: '1boeKEkR0U2Kld3NwZNCBYXMG7agZEWRe', appName: 'Controle de Paiol' };
