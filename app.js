@@ -30,6 +30,7 @@ const state = {
 
 const MAX_TABLE_ROWS = 500;
 const MAX_OVERVIEW_ROWS = 20;
+const EBE_TANKS = ['EBE 1', 'EBE 2', 'EBE 3'];
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -86,7 +87,6 @@ function recordDetails(record) {
     record.note || '-',
     record.origin && `Origem: ${record.origin}`,
     record.destination && `Destino: ${record.destination}`,
-    record.movementClass && `Classe: ${record.movementClass}`,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -94,6 +94,13 @@ function recordDetails(record) {
 
 function tankOptions(selected = '') {
   return state.tanks
+    .map((tank) => `<option${tank.id === selected ? ' selected' : ''}>${escapeHtml(tank.id)}</option>`)
+    .join('');
+}
+
+function ebeTankOptions(selected = '') {
+  return state.tanks
+    .filter((tank) => tank.category === 'EBE' || EBE_TANKS.includes(tank.id))
     .map((tank) => `<option${tank.id === selected ? ' selected' : ''}>${escapeHtml(tank.id)}</option>`)
     .join('');
 }
@@ -173,6 +180,93 @@ function setupMovementFields() {
   </label>`;
 
   $('#recordNote').closest('.form-grid').after(fields);
+
+  const closingPanel = document.createElement('div');
+  closingPanel.id = 'closingStockPanel';
+  closingPanel.className = 'closing-stock hidden';
+  closingPanel.innerHTML = `<div class="closing-stock-head">
+    <div>
+      <b>Saldo final do dia</b>
+      <small>Informe quanto ficou em cada tanque. O sistema calcula a saída automaticamente.</small>
+    </div>
+  </div>
+  <div id="closingStockFields" class="closing-stock-fields"></div>`;
+
+  $('#formError').before(closingPanel);
+}
+
+function labelFor(selector) {
+  return $(selector)?.closest('label');
+}
+
+function resetMovementForm() {
+  state.editingId = null;
+  $('#recordForm').reset();
+  $('#recordDate').value = new Date().toISOString().slice(0, 10);
+  $('#recordType').value = 'Entrada';
+  $('#recordCategory').value = 'EBE';
+  $('#recordTank').innerHTML = ebeTankOptions();
+  $('#recordTank').value = EBE_TANKS.find((id) => state.tanks.some((tank) => tank.id === id)) || state.tanks[0]?.id || '';
+  $('#recordQty').value = '';
+  $('#recordNote').value = '';
+  $('#recordOrigin').value = '';
+  $('#recordDestination').value = $('#recordTank').value;
+  $('#recordClass').value = '';
+  $('#closingStockFields').innerHTML = '';
+  $('#formError').textContent = '';
+  $('#deleteRecord').classList.add('hidden');
+  $('#modalTitle').textContent = 'Registrar entrada';
+  updateMovementMode();
+}
+
+function updateClosingStockPanel() {
+  const balances = getBalances();
+  $('#closingStockFields').innerHTML = state.tanks
+    .map((tank) => {
+      const stock = Math.max(0, balances[tank.id] || 0);
+      return `<label>
+        <span>${escapeHtml(tank.id)}<small>Saldo atual: ${fmt(stock)}</small></span>
+        <input class="closing-stock-input" data-tank="${escapeHtml(tank.id)}" type="number" min="0" max="${stock}" step="0.01" value="${stock}" required>
+      </label>`;
+    })
+    .join('');
+}
+
+function updateMovementMode() {
+  const type = $('#recordType').value;
+  const isExit = type === 'Saída';
+  const isEntry = type === 'Entrada';
+
+  labelFor('#recordCategory')?.classList.toggle('hidden', !isEntry);
+  labelFor('#recordClass')?.classList.toggle('hidden', true);
+  labelFor('#recordTank')?.classList.toggle('hidden', isExit || isEntry);
+  labelFor('#recordQty')?.classList.toggle('hidden', isExit);
+  labelFor('#recordNote')?.classList.toggle('hidden', isExit);
+  labelFor('#recordOrigin')?.classList.toggle('hidden', isExit);
+  labelFor('#recordDestination')?.classList.toggle('hidden', isExit);
+  $('.movement-fields')?.classList.toggle('hidden', isExit);
+  $('#closingStockPanel')?.classList.toggle('hidden', !isExit);
+
+  $('#recordCategory').value = 'EBE';
+  $('#recordCategory').disabled = true;
+  $('#recordClass').value = '';
+
+  if (isEntry) {
+    $('#modalTitle').textContent = state.editingId ? 'Corrigir entrada' : 'Registrar entrada';
+    $('#recordTank').innerHTML = ebeTankOptions($('#recordTank').value);
+    $('#recordOrigin').innerHTML = '<option value="">Selecione a origem</option><option>CD Escada</option><option>CD Outro</option>';
+    $('#recordDestination').innerHTML =
+      '<option value="">Selecione o tanque de destino</option>' + ebeTankOptions($('#recordDestination').value);
+    $('#recordTank').value = $('#recordDestination').value || $('#recordTank').value || EBE_TANKS[0];
+    $('#recordDestination').value = $('#recordTank').value;
+    $('#recordQty').required = true;
+  }
+
+  if (isExit) {
+    $('#modalTitle').textContent = 'Registrar saídas do dia';
+    $('#recordQty').required = false;
+    updateClosingStockPanel();
+  }
 }
 
 function render() {
@@ -257,6 +351,10 @@ function render() {
 
   $('#tankCards').innerHTML = state.tanks.map((tank) => renderTankCard(tank, balances)).join('');
   $('#overviewTanks').innerHTML = state.tanks.map((tank) => renderTankCard(tank, balances)).join('');
+
+  if (!$('#modal')?.classList.contains('hidden') && $('#recordOrigin')) {
+    updateMovementMode();
+  }
 }
 
 async function save(action, payload) {
@@ -294,13 +392,19 @@ async function sync(action = 'snapshot') {
 }
 
 function openRecord(id) {
-  state.editingId = id || null;
+  if (!id) {
+    resetMovementForm();
+    $('#modal').classList.remove('hidden');
+    return;
+  }
+
+  state.editingId = id;
   const record = state.records.find((item) => item.id === id);
 
   $('#modalTitle').textContent = record ? 'Corrigir lançamento' : 'Registrar movimento';
   $('#recordDate').value = record?.date || new Date().toISOString().slice(0, 10);
   $('#recordType').value = record?.type || 'Entrada';
-  $('#recordCategory').value = record?.category || 'UMB';
+  $('#recordCategory').value = record?.category || 'EBE';
   $('#recordTank').value = record?.tank || state.tanks[0].id;
   $('#recordQty').value = record?.qty || '';
   $('#recordNote').value = record?.note || '';
@@ -308,6 +412,8 @@ function openRecord(id) {
   $('#recordDestination').value = record?.destination || '';
   $('#recordClass').value = record?.movementClass || '';
   $('#formError').textContent = '';
+  $('#deleteRecord').classList.remove('hidden');
+  updateMovementMode();
   $('#modal').classList.remove('hidden');
 }
 
@@ -322,7 +428,10 @@ document.addEventListener('click', async (event) => {
   }
 
   if (event.target.matches('[data-open-form]')) openRecord();
-  if (event.target.matches('[data-close]')) $('#modal').classList.add('hidden');
+  if (event.target.matches('[data-close]')) {
+    $('#modal').classList.add('hidden');
+    resetMovementForm();
+  }
   if (event.target.matches('[data-edit]')) openRecord(event.target.dataset.edit);
   if (event.target.matches('[data-tab-link]')) $(`[data-tab="${event.target.dataset.tabLink}"]`).click();
   if (event.target.id === 'userMenuBtn') $('#userMenu').classList.toggle('hidden');
@@ -354,9 +463,62 @@ document.addEventListener('click', async (event) => {
 $('#recordForm').addEventListener('submit', async (event) => {
   event.preventDefault();
 
-  const qty = Number($('#recordQty').value);
-  const tank = state.tanks.find((item) => item.id === $('#recordTank').value);
   const type = $('#recordType').value;
+  const user = session?.name || session?.user || 'Operador';
+
+  if (type === 'Saída' && !state.editingId) {
+    const balances = getBalances();
+    const entries = $$('.closing-stock-input').map((input) => {
+      const tank = state.tanks.find((item) => item.id === input.dataset.tank);
+      const current = balances[input.dataset.tank] || 0;
+      const finalStock = Number(input.value);
+      return { tank, current, finalStock, consumption: current - finalStock };
+    });
+
+    const invalid = entries.find((entry) => !entry.tank || Number.isNaN(entry.finalStock) || entry.finalStock < 0);
+    if (invalid) {
+      $('#formError').textContent = 'Informe saldos finais válidos para todos os tanques.';
+      return;
+    }
+
+    const aboveCurrent = entries.find((entry) => entry.finalStock > entry.current);
+    if (aboveCurrent) {
+      $('#formError').textContent = `O saldo final do ${aboveCurrent.tank.id} não pode ser maior que o saldo atual.`;
+      return;
+    }
+
+    const consumptions = entries.filter((entry) => entry.consumption > 0);
+    if (!consumptions.length) {
+      $('#formError').textContent = 'Nenhuma saída calculada. Reduza o saldo final de pelo menos um tanque.';
+      return;
+    }
+
+    for (const entry of consumptions) {
+      const ok = await save('record', {
+        date: $('#recordDate').value,
+        type: 'Saída',
+        category: entry.tank.category,
+        tank: entry.tank.id,
+        qty: entry.consumption,
+        note: `Fechamento do dia - saldo final: ${fmt(entry.finalStock)}`,
+        origin: entry.tank.id,
+        destination: 'Consumo',
+        movementClass: 'Consumo - Aplicado em Campo',
+        user,
+      });
+
+      if (!ok) return;
+    }
+
+    $('#modal').classList.add('hidden');
+    resetMovementForm();
+    toast('Saídas calculadas e lançadas.');
+    return;
+  }
+
+  const qty = Number($('#recordQty').value);
+  const tankId = type === 'Entrada' ? $('#recordDestination').value : $('#recordTank').value;
+  const tank = state.tanks.find((item) => item.id === tankId);
 
   if (!tank) {
     $('#formError').textContent = 'Selecione um tanque válido.';
@@ -377,26 +539,35 @@ $('#recordForm').addEventListener('submit', async (event) => {
     id: state.editingId || crypto.randomUUID(),
     date: $('#recordDate').value,
     type,
-    category: $('#recordCategory').value,
+    category: type === 'Entrada' ? 'EBE' : $('#recordCategory').value,
     tank: tank.id,
     qty,
     note: $('#recordNote').value || '-',
     origin: $('#recordOrigin').value || '',
-    destination: $('#recordDestination').value || '',
-    movementClass: $('#recordClass').value || '',
-    user: session?.name || session?.user || 'Operador',
+    destination: type === 'Entrada' ? tank.id : $('#recordDestination').value || '',
+    movementClass: '',
+    user,
   };
 
   const ok = await save(state.editingId ? 'update-record' : 'record', item);
   if (ok) {
     $('#modal').classList.add('hidden');
+    resetMovementForm();
     toast(state.editingId ? 'Lançamento corrigido.' : 'Lançamento salvo.');
   }
 });
 
 $('#searchInput')?.addEventListener('input', render);
 $$('.column-filter').forEach((field) => field.addEventListener('input', render));
+$('#recordType')?.addEventListener('change', updateMovementMode);
+$('#recordDestination')?.addEventListener('change', () => {
+  if ($('#recordType').value === 'Entrada') {
+    $('#recordTank').value = $('#recordDestination').value;
+  }
+});
 
 setupMovementFields();
+resetMovementForm();
+$('#modal').classList.add('hidden');
 render();
 sync('snapshot');
