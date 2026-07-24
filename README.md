@@ -1,5 +1,6 @@
 # Controle de Paiol — Emulsão
 
+<!-- Publicação Pages atualizada em 24/07/2026 -->
 Aplicação estática para controle de estoque de emulsão por UMB e EBE, com lançamentos corrigíveis, dashboard operacional e armazenamento em Google Sheets via Apps Script.
 
 ## Estrutura da planilha
