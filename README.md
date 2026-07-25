@@ -7,6 +7,10 @@ Aplicação estática para controle de estoque de emulsão por UMB e EBE, com la
 
 O Apps Script cria as abas `Lancamentos`, `Tanques`, `Usuarios` e `Auditoria`. A aba de lançamentos possui: `ID`, `Data do registro`, `Tipo de Lançamento`, `Tipo de Tanque`, `Tanque`, `Quantidade (kg)`, `Observação`, `Usuário`, `Atualizado em`, `Status`.
 
+## Lançamento de saídas
+
+Ao registrar `Saída`, o formulário mostra uma caixa de saldo final para cada tanque. O botão `Cheio`, ao lado de cada caixa, preenche automaticamente o maior saldo permitido para aquele tanque, usando a capacidade nominal como referência e respeitando o saldo atual quando ele for menor que a capacidade. Assim o fechamento não cria saldo final acima do disponível.
+
 ## Publicação
 
 1. Abra a planilha indicada e acesse Extensões → Apps Script.

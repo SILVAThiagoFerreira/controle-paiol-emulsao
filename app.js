@@ -224,9 +224,13 @@ function updateClosingStockPanel() {
   $('#closingStockFields').innerHTML = state.tanks
     .map((tank) => {
       const stock = Math.max(0, balances[tank.id] || 0);
+      const fullStock = Math.max(0, Math.min(stock, Number(tank.capacity) || stock));
       return `<label>
         <span>${escapeHtml(tank.id)}<small>Saldo atual: ${fmt(stock)}</small></span>
-        <input class="closing-stock-input" data-tank="${escapeHtml(tank.id)}" type="number" min="0" max="${stock}" step="0.01" value="${stock}" required>
+        <div class="closing-stock-control">
+          <input class="closing-stock-input" data-tank="${escapeHtml(tank.id)}" type="number" min="0" max="${stock}" step="0.01" value="${stock}" required>
+          <button class="full-tank-btn" type="button" data-full-tank="${escapeHtml(tank.id)}" data-full-value="${fullStock}" title="Preencher ${escapeHtml(tank.id)} com ${escapeHtml(fmt(fullStock))}">Cheio</button>
+        </div>
       </label>`;
     })
     .join('');
@@ -434,6 +438,13 @@ document.addEventListener('click', async (event) => {
   }
   if (event.target.matches('[data-edit]')) openRecord(event.target.dataset.edit);
   if (event.target.matches('[data-tab-link]')) $(`[data-tab="${event.target.dataset.tabLink}"]`).click();
+  if (event.target.matches('[data-full-tank]')) {
+    const input = $$('.closing-stock-input').find((field) => field.dataset.tank === event.target.dataset.fullTank);
+    if (input) {
+      input.value = Number(event.target.dataset.fullValue || 0).toFixed(2);
+      input.focus();
+    }
+  }
   if (event.target.id === 'userMenuBtn') $('#userMenu').classList.toggle('hidden');
   if (event.target.dataset.action === 'change-password') location.href = 'usuarios.html#senha';
 
