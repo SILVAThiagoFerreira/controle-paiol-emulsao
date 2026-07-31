@@ -7,19 +7,19 @@ const initialTanks = [
 ];
 
 const initialRecords = [
-  ['EBE 1', 16389],
-  ['EBE 2', 40741],
-  ['EBE 3', 42193],
+  ['EBE 1', 12306],
+  ['EBE 2', 40154],
+  ['EBE 3', 5834],
   ['UMB 1123', 10500],
-  ['UMB 1072', 12000],
+  ['UMB 1072', 3635],
 ].map(([tank, qty]) => ({
   id: `initial-${tank.toLowerCase().replaceAll(' ', '-')}`,
-  date: '2026-07-24',
+  date: '2026-07-31',
   type: 'Entrada',
   category: tank.startsWith('EBE') ? 'EBE' : 'UMB',
   tank,
   qty,
-  note: 'Estoque inicial',
+  note: 'Estoque inicial - posição em 31/07/2026',
 }));
 
 const state = {
